@@ -1,0 +1,18 @@
+[project]
+name = "example-project"
+version = "0.1.0"
+description = "Example project: a daily low-stock check. Copy its shape, then delete it."
+requires-python = ">=3.12"
+dependencies = [
+    "team-utils",   # shared code: settings, secrets, logging, run_job
+]
+
+[tool.uv.sources]
+team-utils = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "example_project"

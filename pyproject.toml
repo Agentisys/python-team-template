@@ -1,0 +1,79 @@
+[project]
+name = "team-utils"
+version = "0.1.0"
+description = "Shared code for every project in this repository: settings, secrets, logging, the job wrapper and the team tools."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+# Only needed once secrets move to Azure Key Vault: uv sync --all-packages --extra keyvault
+keyvault = [
+    "azure-identity",
+    "azure-keyvault-secrets",
+]
+
+[project.scripts]
+# `uv run team-doctor` checks a machine is set up correctly.
+team-doctor = "team_utils.doctor:main"
+# `uv run team-legacy-audit <folder>` lists what to clean before a first commit.
+team-legacy-audit = "team_utils.legacy_audit:main"
+# `uv run team-new-project <name>` creates a new project in projects/.
+team-new-project = "team_utils.new_project:main"
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "team_utils"
+
+# ---------------------------------------------------------------- workspace
+# Every folder in projects/ is its own package with its own dependencies, sharing this
+# repository's lockfile, CI and team_utils. See projects/README.md.
+[tool.uv.workspace]
+members = ["projects/*"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+# First-party code: team_utils, plus every project's package under projects/*/src.
+src = ["src", "projects/*/src"]
+target-version = "py312"
+force-exclude = true
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes: unused imports, undefined names
+    "I",       # import sorting
+    "UP",      # modern Python syntax
+    "B",       # likely bugs
+    "SIM",     # simplifications
+    "S",       # security (bandit): hardcoded passwords, shell injection...
+    "PTH",     # prefer pathlib
+    "T20",     # no print() in library code
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]           # assert is how pytest works
+"projects/*/tests/**" = ["S101"]
+"projects/*/jobs/**" = ["T20"]  # jobs may print to the console
+"src/team_utils/doctor.py" = ["T20"]
+"src/team_utils/legacy_audit.py" = ["T20"]
+"src/team_utils/new_project.py" = ["T20"]
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests", "projects"]
+# importlib mode lets every project have its own tests/ folder without name clashes.
+addopts = "-ra --import-mode=importlib"

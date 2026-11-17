@@ -1,0 +1,16 @@
+# Every pull request automatically requests review from the owners below.
+# With "Require review from Code Owners" on in the main ruleset, one owner must approve.
+#
+# Replace @your-org/python-team and @your-org/python-team-leads with your own GitHub
+# teams (see docs/github-setup.md). Later lines win, so the catch-all comes first.
+
+*                             @your-org/python-team
+
+# One line per project: the people who own its jobs review its changes.
+# The tests fail if a project in projects/ has no line here.
+/projects/example-project/    @your-org/python-team
+
+# CI, deployment and security changes get a second pair of eyes from the leads.
+/.github/                     @your-org/python-team-leads
+/deploy/                      @your-org/python-team-leads
+/SECURITY.md                  @your-org/python-team-leads

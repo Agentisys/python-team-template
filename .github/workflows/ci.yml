@@ -1,0 +1,71 @@
+# Runs on every pull request and every push to main.
+# Make the "CI / tests" checks required in the main branch ruleset.
+#
+# Uses only GitHub-owned actions, pinned to a full commit SHA (the "# vX.Y.Z" comment is
+# for humans; Dependabot updates both), so it works under the strictest organisation
+# Actions policy. That is why uv is installed with pip, not with astral-sh/setup-uv.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: this workflow only reads the repo.
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: 0.13.9
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # The team works on both, so CI checks both.
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: .python-version
+      - name: Install uv ${{ env.UV_VERSION }}
+        run: python -m pip install --disable-pip-version-check "uv==${{ env.UV_VERSION }}"
+      - name: Install every project exactly as uv.lock says (fails if the lockfile is stale)
+        run: uv sync --locked --all-packages
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Tests
+        run: uv run pytest
+
+  secrets-scan:
+    name: secrets scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: a secret added in one commit and deleted in the next is still
+          # in the branch GitHub received. A working-tree scan would miss it.
+          fetch-depth: 0
+      - name: Install gitleaks (checksum verified)
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfLO "$base/$tarball"
+          curl -sSfL "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt" | grep " $tarball\$" | sha256sum --check
+          tar -xzf "$tarball" gitleaks
+      - name: gitleaks (every commit, using .gitleaks.toml)
+        run: ./gitleaks git . --redact --verbose

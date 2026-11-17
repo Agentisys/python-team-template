@@ -1,0 +1,58 @@
+# Team gitleaks config: the built-in rules plus rules for the secrets legacy Windows
+# scripts actually contain. The built-in rules look for high-entropy keys and known
+# token formats (AWS, GitHub, Azure...). They miss human passwords such as
+# PWD=Summer2024! in a connection string or `net use ... /user:CORP\svc Password1`.
+#
+# Picked up automatically by the pre-commit hook and by CI (both run from the repo root).
+# Scan any folder by hand with:  gitleaks dir <folder> -c .gitleaks.toml --redact -v
+#
+# A finding that is a deliberate fake (tests, docs): add `# gitleaks:allow` to that line.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "password-assignment-quoted"
+description = "Password-like variable assigned a quoted literal"
+regex = '''(?i)[a-z0-9_]*(?:password|passwd|pwd|passw|_pass|secret|token|api_?key)[a-z0-9_]*["']?\s*[:=]\s*[rbuf]?["']([^"'\s]{4,})["']'''
+secretGroup = 1
+keywords = ["pass", "pwd", "secret", "token", "key"]
+
+[[rules]]
+id = "password-assignment-unquoted"
+description = "Password-like key with a bare value (.ini, .env, .cfg, .yaml, .properties)"
+regex = '''(?im)^\s*[a-z0-9_.-]*(?:password|passwd|pwd|_pass|secret|token|api_?key)[a-z0-9_.-]*\s*[:=]\s*([^\s"'#;]{4,})\s*$'''
+secretGroup = 1
+keywords = ["pass", "pwd", "secret", "token", "key"]
+
+[[rules]]
+id = "connection-string-password"
+description = "Password inside an ODBC / ADO.NET / SQLAlchemy connection string"
+regex = '''(?i)(?:\b(?:pwd|password)\s*=\s*([^;"'\s]{3,})\s*(?:;|"|'|$)|://[^:/\s"']+:([^@/\s"']{3,})@)'''
+keywords = ["pwd", "password", "://"]
+
+[[rules]]
+id = "windows-cli-password"
+description = "Password on a Windows command line (net use, schtasks /RP, runas, psexec -p)"
+regex = '''(?i)(?:net\s+use\s+\S+\s+\S+\s+/user:\S+\s+([^\s/*]\S*)|schtasks\b.*?\s/rp\s+"?([^\s"*]+)|psexec\b.*?\s-p\s+"?([^\s"]+))'''
+keywords = ["net use", "schtasks", "psexec"]
+
+[[allowlists]]
+description = "References to a secret, not the secret itself"
+regexTarget = "secret"
+regexes = [
+  '''(?i)^(?:get_secret|getpass|os\.|getenv|environ|none|null|true|false|args\.|self\.|settings\.|config\.|cfg\.|kv:)''',
+  '''^(?:\$|%|<|\{|\*+$)''',
+  '''(?i)^(?:x+|\.\.\.|placeholder|redacted|changeme-in-vault|local-fake-value)$''',
+  '''(?i)^(?:not-a-real|fake|dummy)(?:[-_][-_a-z0-9]*)?$''',
+  '''^local$''',                      # placeholder key for a local model server that ignores keys
+]
+
+[[allowlists]]
+description = "Keys that name or locate a secret rather than hold one"
+regexTarget = "match"
+regexes = [
+  '''(?i)(?:secret|key|token|password|pwd)_?(?:name|names|id|url|uri|path|file|vault|ref|length|len|prompt|field|policy)["']?\s*[:=]''',
+  '''(?i)--secret-env-vars=''',
+  '''(?i)(?:prompt|output|input|context)_tokens["']?\s*[:=]''',   # token limits, not tokens
+]

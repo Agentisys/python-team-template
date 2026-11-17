@@ -1,0 +1,13 @@
+# Normalise line endings so Windows and Linux machines produce clean diffs.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files are never diffed or converted.
+*.png binary
+*.jpg binary
+*.xlsx binary
+*.pdf binary

@@ -1,0 +1,6 @@
+# Every issue starts from a template, so it carries the details reviewers need.
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem or leaked secret
+    url: https://github.com/your-org/python-team-template/blob/main/SECURITY.md
+    about: Do not open a public issue. Rotate a leaked secret first, then follow SECURITY.md.
